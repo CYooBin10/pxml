@@ -112,8 +112,15 @@ program
       }
     }
 
+    const bugsHistoryXml = `<bugs>
+  <bug id="cart.badge" flow="cart.view">
+    Cart badge count displays 0 despite items being in the shopping cart database. Always fetch active cart status from the backend database route instead of localStorage.
+  </bug>
+</bugs>`;
+
     fs.writeFileSync(configPath, mainXml, 'utf-8');
     fs.writeFileSync(path.join(cwd, 'flows', 'blog.xml'), blogXml, 'utf-8');
+    fs.writeFileSync(path.join(cwd, 'bugs_history.xml'), bugsHistoryXml, 'utf-8');
     console.log('Successfully initialized Next.js project with pxml templates.');
   });
 
@@ -331,6 +338,34 @@ program
         bugContext = fs.readFileSync(options.bug, 'utf-8');
       } else {
         bugContext = options.bug;
+      }
+    }
+
+    // Load bugs_history.xml if it exists to add regression prevention checklist
+    const bugsHistoryPath = path.join(cwd, 'bugs_history.xml');
+    if (fs.existsSync(bugsHistoryPath)) {
+      try {
+        const historyXml = fs.readFileSync(bugsHistoryPath, 'utf-8');
+        const optionsXml = {
+          ignoreAttributes: false,
+          attributeNamePrefix: '@_',
+          allowBooleanAttributes: true,
+          parseAttributeValue: true,
+        };
+        const fastXml = new (require('fast-xml-parser').XMLParser)(optionsXml);
+        const parsed = fastXml.parse(historyXml);
+        if (parsed.bugs && parsed.bugs.bug) {
+          const rawBugs = Array.isArray(parsed.bugs.bug) ? parsed.bugs.bug : [parsed.bugs.bug];
+          let historyText = '\n--- Historical Bug Prevention Checklist (Ensure these bugs do not exist in the code) ---\n';
+          for (const bug of rawBugs) {
+            const flowAttr = bug['@_flow'] || 'general';
+            const desc = typeof bug === 'object' ? bug['#text'] || bug.description || '' : String(bug);
+            historyText += `- [Flow: ${flowAttr}] Bug ID ${bug['@_id']}: ${desc.trim()}\n`;
+          }
+          bugContext = bugContext ? `${bugContext}\n${historyText}` : historyText;
+        }
+      } catch (err: any) {
+        console.warn(`[WARNING] Failed to parse bugs_history.xml: ${err.message}`);
       }
     }
 

@@ -49,6 +49,16 @@ pxml fix --flow=blog.write --provider ollama --model llama3 --baseUrl http://loc
 ```
 This formulates a minimal context patch prompt and retries local SEARCH/REPLACE edits up to 3 times.
 
+#### Regression Prevention via `bugs_history.xml`
+You can document persistent bugs in `bugs_history.xml`. When you run `pxml fix`, the compiler automatically aggregates these descriptions and feeds them to the AI to prevent code regressions:
+```xml
+<bugs>
+  <bug id="cart.badge" flow="cart.view">
+    Cart badge count displays 0 despite items being in the shopping cart database. Always fetch active cart status from the backend database route instead of localStorage.
+  </bug>
+</bugs>
+```
+
 ### 5. Validate Environment (Doctor)
 ```bash
 pxml doctor

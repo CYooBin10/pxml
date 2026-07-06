@@ -1,0 +1,5 @@
+<bugs>
+  <bug id="cart.badge" flow="cart.view">
+    Cart badge count displays 0 despite items being in the shopping cart database. Always fetch active cart status from the backend database route instead of localStorage.
+  </bug>
+</bugs>

@@ -25,6 +25,7 @@ pxml init
 This will initialize:
 - `project.xml`: Main compiler configuration file.
 - `flows/blog.xml`: Sample blog flow node layout configuration.
+- `bugs_history.xml`: A historical record of resolved bugs to prevent code regressions during healing.
 - `pxml.xsd`: Local XML schema to enable auto-complete, validation, and documentation hints inside code editors.
 
 ## 3. Compile the Code
