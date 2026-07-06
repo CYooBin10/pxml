@@ -15,7 +15,8 @@ export async function runFixLoop(
   runner: PxmlRunner,
   writer: FileWriter,
   mockFixResponse?: string,
-  bugContext?: string
+  bugContext?: string,
+  forceFirstRun?: boolean
 ): Promise<boolean> {
   const maxRetries = 3;
   let attempt = 0;
@@ -30,7 +31,10 @@ export async function runFixLoop(
     const currentCode = fs.existsSync(node.meta.path) ? fs.readFileSync(node.meta.path, 'utf-8') : '';
     const testResult = runner.runNodeTests(node);
     
-    if (testResult.passed) {
+    // Bypass check only on attempt 1 if forceFirstRun is requested
+    const bypassCheck = forceFirstRun && attempt === 1;
+
+    if (testResult.passed && !bypassCheck) {
       console.log(`[FIX] Success! Node ${node.id} tests passed on attempt ${attempt}.`);
       
       // Update manifest

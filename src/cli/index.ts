@@ -322,11 +322,12 @@ program
     }
 
     for (const node of targetNodes) {
-      // Check if node is failing tests
+      // Check if node is failing tests, or force fix if a custom bug context is provided
       console.log(`[FIX] Verifying node: ${node.id}`);
       const testRes = runner.runNodeTests(node);
       if (!testRes.passed || bugContext) {
-        const success = await runFixLoop(node, cwd, manifest, codegen, runner, writer, undefined, bugContext);
+        // If bugContext is provided, force run at least once by passing a flag or bypassing check
+        const success = await runFixLoop(node, cwd, manifest, codegen, runner, writer, undefined, bugContext, !!bugContext);
         if (success) {
           console.log(`[FIX] Node ${node.id} healed successfully.`);
         } else {
