@@ -268,7 +268,33 @@ Generate ONLY the single-line shell command. Do not include explanation, comment
 Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`typescript) or explanations. Only output code.`;
     
     const code = await this.provider.generate(prompt, systemPrompt, this.config.model);
-    const cleanedCode = this.cleanMarkdown(code);
+    let cleanedCode = this.cleanMarkdown(code);
+
+    // AI Code Verification & Self-Correction step
+    try {
+      const verificationPrompt = `Verify the correctness and deployment stability of the following generated code for node '${node.id}'.
+Destination Path: ${node.meta.path}
+Constraints:
+${node.constraints.map(c => `  - [${c.verify}] ${c.description}`).join('\n')}
+
+Generated Code:
+\`\`\`typescript
+${cleanedCode}
+\`\`\`
+
+Analyze the code. Are there any bugs, schema inconsistencies, missing SQLite seed data (if database-related), or missing exports? 
+If there are issues, output the corrected code. If the code is fully stable, output the word "STABLE".`;
+
+      const verificationResponse = await this.provider.generate(verificationPrompt, "You are a senior code reviewer. Return ONLY the corrected code or the exact word 'STABLE'. Do not include markdown code blocks or explanations.", this.config.model);
+      const cleanedVerification = this.cleanMarkdown(verificationResponse);
+      
+      if (cleanedVerification.toUpperCase() !== 'STABLE' && cleanedVerification.length > 20) {
+        console.log(`[VERIFY] AI self-corrected generated code for node: ${node.id}`);
+        cleanedCode = cleanedVerification;
+      }
+    } catch (err: any) {
+      console.warn(`[VERIFY WARNING] Self-verification step skipped: ${err.message}`);
+    }
 
     writer.write(node.meta.path, cleanedCode);
     this.logAIResponse(node.id, prompt, cleanedCode);
