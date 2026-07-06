@@ -72,9 +72,20 @@ program
 </project>`;
 
     // Copy pxml.xsd to the initialized project directory if it exists
-    const sourceXsd = path.join(__dirname, '../../pxml.xsd');
+    const fileUrl = new URL(import.meta.url);
+    const sourceXsd = path.resolve(path.dirname(fileUrl.pathname), '../../pxml.xsd');
     if (fs.existsSync(sourceXsd)) {
       fs.copyFileSync(sourceXsd, path.join(cwd, 'pxml.xsd'));
+    } else {
+      // Fallback fallback to relative check from process cwd if launched via npm run cli
+      const fallbackXsd = path.resolve(cwd, 'pxml.xsd');
+      if (!fs.existsSync(fallbackXsd)) {
+        // Find pxml.xsd relative to global workspace if present
+        const workspaceXsd = path.resolve(path.dirname(fileUrl.pathname), '../../../pxml.xsd');
+        if (fs.existsSync(workspaceXsd)) {
+          fs.copyFileSync(workspaceXsd, path.join(cwd, 'pxml.xsd'));
+        }
+      }
     }
 
     fs.writeFileSync(configPath, mainXml, 'utf-8');
