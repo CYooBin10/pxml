@@ -59,6 +59,14 @@ program
     </meta>
     <constraint verify="static">Must export standard nextjs configuration object</constraint>
   </node>
+
+  <node id="setup.install" type="setup-command" flow="setup">
+    <meta>
+      <path>package.json</path>
+      <depends_on>config.package</depends_on>
+    </meta>
+    <constraint verify="static">Execute npm install to setup node modules</constraint>
+  </node>
 </project>`;
 
     const blogXml = `<project name="blog-flow" stack="nextjs" version="0.1.0"

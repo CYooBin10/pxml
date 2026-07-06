@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Node } from '../parser/schema.js';
 import { FileWriter } from '../writer/index.js';
+import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -130,6 +131,38 @@ export class PxmlCodegen {
   }
 
   async generateNodeCode(node: Node, projectContext: string, writer: FileWriter): Promise<string> {
+    if (node.type === 'setup-command') {
+      if (this.config.mockResponse) {
+        const mockCmd = this.config.mockResponse(node);
+        console.log(`[SETUP-COMMAND] Would execute: ${mockCmd}`);
+        return mockCmd;
+      }
+
+      if (!this.provider) {
+        throw new Error(`AI Provider is not configured.`);
+      }
+
+      const prompt = `Project Context:
+${projectContext}
+
+Generate the exact terminal shell command to initialize/configure this project:
+- ID: ${node.id}
+- Type: ${node.type}
+- Flow: ${node.flow}
+- Target: Run setup tasks like 'npx create-next-app ...' or 'npm install ...'
+- Constraints:
+${node.constraints.map(c => `  - [${c.verify}] ${c.description}`).join('\n')}
+
+Generate ONLY the single-line shell command. Do not include explanation, comment, or markdown block wrapping.`;
+
+      const systemPrompt = `You are a DevOps engineer generating setup shell commands. Generate ONLY the executable terminal command text. Do not wrap in markdown or backticks.`;
+      const commandText = (await this.provider.generate(prompt, systemPrompt, this.config.model)).trim();
+      
+      console.log(`[SETUP-COMMAND] Executing command: "${commandText}"`);
+      execSync(commandText, { stdio: 'inherit', cwd: process.cwd() });
+      return commandText;
+    }
+
     if (this.config.mockResponse) {
       const mockCode = this.config.mockResponse(node);
       writer.write(node.meta.path, mockCode);
