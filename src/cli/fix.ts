@@ -95,7 +95,7 @@ Generate a SEARCH/REPLACE block to patch the code and fix the failures. Format:
     try {
       const patchedCode = PxmlPatcher.applyPatch(currentCode, patch);
       writer.write(node.meta.path, patchedCode);
-      console.log(`[FIX] Applied patch successfully.`);
+      console.log(`[FIX] Applied patch successfully. Patch details:\n${patch}\n`);
     } catch (err: any) {
       console.warn(`[FIX] Failed to apply patch: ${err.message}`);
       // If patch application failed, we retry or escalate
