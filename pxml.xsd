@@ -84,18 +84,7 @@
               </xs:element>
             </xs:sequence>
             <xs:attribute name="id" type="xs:string" use="required"/>
-            <xs:attribute name="type" use="required">
-              <xs:simpleType>
-                <xs:restriction base="xs:string">
-                  <xs:enumeration value="api-route"/>
-                  <xs:enumeration value="ui-component"/>
-                  <xs:enumeration value="db-model"/>
-                  <xs:enumeration value="middleware"/>
-                  <xs:enumeration value="config-file"/>
-                  <xs:enumeration value="setup-command"/>
-                </xs:restriction>
-              </xs:simpleType>
-            </xs:attribute>
+             <xs:attribute name="type" type="xs:string" use="required"/>
             <xs:attribute name="flow" type="xs:string" use="required"/>
             <xs:attribute name="extends" type="xs:string" use="optional"/>
           </xs:complexType>

@@ -38,7 +38,7 @@ export const TestCaseSchema = z.object({
 
 export const NodeSchema = z.object({
   id: z.string(),
-  type: z.enum(['api-route', 'ui-component', 'db-model', 'middleware', 'config-file', 'setup-command']), // EXTENSION POINT: Add custom node types here
+  type: z.string(), // EXTENSION POINT: Expand backend/frontend stack types or generic custom node types
   flow: z.string(),
   extends: z.string().optional(),
   meta: MetaSchema,
@@ -50,7 +50,7 @@ export const NodeSchema = z.object({
 
 export const ProjectSchema = z.object({
   name: z.string(),
-  stack: z.enum(['nextjs']), // EXTENSION POINT: Expand backend/frontend stack types
+  stack: z.string(), // EXTENSION POINT: Expand backend/frontend stack types
   version: z.string(),
   imports: z.array(ImportSchema).default([]),
   nodes: z.array(NodeSchema).default([])
