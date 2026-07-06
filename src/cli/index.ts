@@ -43,7 +43,7 @@ program
     <meta>
       <path>package.json</path>
     </meta>
-    <constraint verify="static">Initialize a Next.js TypeScript app in the current directory. Use npx create-next-app --typescript --eslint --tailwind --app --src-dir=false --import-alias="@/*" . --use-npm --yes</constraint>
+    <constraint verify="static">Initialize a Next.js TypeScript app in the current directory. Use npx create-next-app --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes .</constraint>
   </node>
 </project>`;
 
