@@ -113,8 +113,8 @@ program
     }
 
     const bugsHistoryXml = `<bugs>
-  <bug id="cart.badge" flow="cart.view">
-    Cart badge count displays 0 despite items being in the shopping cart database. Always fetch active cart status from the backend database route instead of localStorage.
+  <bug id="db.locking" flow="blog.write">
+    SQLite database file locks when executing parallel write operations. Ensure connections are closed properly or run db queries sequentially.
   </bug>
 </bugs>`;
 
