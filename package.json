@@ -1,0 +1,27 @@
+{
+  "name": "pxml",
+  "version": "0.1.0",
+  "description": "XML DSL and compiler for AI-driven project building",
+  "main": "dist/index.js",
+  "bin": {
+    "pxml": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cli": "tsx src/cli/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.22.0",
+    "commander": "^12.1.0",
+    "fast-xml-parser": "^4.4.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "typescript": "^5.5.2",
+    "vitest": "^1.6.0",
+    "tsx": "^4.16.0"
+  }
+}

@@ -1,0 +1,3 @@
+<project name="main-blog" stack="nextjs" version="0.1.0">
+  <import src="./flows/blog.read.xml" as="read" />
+</project>

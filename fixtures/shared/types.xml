@@ -1,0 +1,21 @@
+<project name="shared-types" stack="nextjs" version="0.1.0">
+	<node id="base.api-route" type="middleware" flow="shared">
+		<meta>
+			<path>app/api/base.ts</path>
+		</meta>
+		<constraint verify="llm-judge">No sensitive data leakage in response or logs</constraint>
+	</node>
+
+	<node id="db.post" type="db-model" flow="shared">
+		<meta>
+			<path>prisma/schema.prisma</path>
+		</meta>
+		<output>
+			<field name="id" type="string" required="true" format="uuid" />
+			<field name="title" type="string" required="true" />
+			<field name="slug" type="string" required="true" />
+			<field name="content" type="string" required="true" />
+			<field name="publishedAt" type="date" required="false" />
+		</output>
+	</node>
+</project>
