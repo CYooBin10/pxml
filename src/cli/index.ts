@@ -152,8 +152,6 @@ program
 
     console.log(`Compiling project ${project.name} (stack: ${project.stack})...`);
 
-    const projectContext = project.nodes.map(n => `Node: ${n.id}, Path: ${n.meta.path}`).join('\n');
-
     for (const nodeId of order) {
       const node = project.nodes.find(n => n.id === nodeId)!;
       const xmlHash = PxmlCache.hashNode(node);
@@ -167,6 +165,21 @@ program
       if (cached && cached.locked) {
         console.log(`[LOCKED] Node ${nodeId} is locked. Skipping codegen.`);
         continue;
+      }
+
+      // Build rich project context by loading contents of already generated files
+      let projectContext = project.nodes.map(n => `Node: ${n.id}, Path: ${n.meta.path}`).join('\n');
+      projectContext += '\n\nAlready generated files contents:\n';
+      
+      const manifestData = manifest.get();
+      for (const [mNodeId, mNode] of Object.entries(manifestData.nodes)) {
+        for (const filePath of mNode.output_files) {
+          const absPath = path.resolve(cwd, filePath);
+          if (fs.existsSync(absPath)) {
+            const content = fs.readFileSync(absPath, 'utf-8');
+            projectContext += `\n--- File: ${filePath} (Node: ${mNodeId}) ---\n${content}\n`;
+          }
+        }
       }
 
       console.log(`[CODEGEN] Generating code for node: ${nodeId}`);
