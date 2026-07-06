@@ -28,6 +28,20 @@ Generate ONLY the file contents. Do not include markdown code block syntax (like
 CRITICAL: Write idiomatic Go code, ensure correct package declaration, and format using gofmt standards.`,
       promptNote: `Stack: Go. Use standard Go packaging and syntax.`
     };
+  } else if (stackLower.includes('c#') || stackLower === 'csharp' || stackLower.includes('dotnet')) {
+    return {
+      systemPrompt: `You are an expert C# developer generating implementation code for a node specification.
+Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`csharp) or explanations. Only output code.
+CRITICAL: Use modern C# syntax, follow standard .NET conventions, and declare namespace/imports correctly.`,
+      promptNote: `Stack: C# / .NET. Use standard .NET namespace and architecture.`
+    };
+  } else if (stackLower.includes('c++') || stackLower === 'cpp') {
+    return {
+      systemPrompt: `You are an expert C++ developer generating implementation code for a node specification.
+Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`cpp) or explanations. Only output code.
+CRITICAL: Use modern C++ standards (C++17/20), handle memory management correctly, and ensure clean header and source file separation.`,
+      promptNote: `Stack: C++. Use standard C++ library and syntax.`
+    };
   } else {
     return {
       systemPrompt: `You are an expert software engineer generating implementation code for a node specification.
