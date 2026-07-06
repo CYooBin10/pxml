@@ -47,7 +47,8 @@ export class OpenAICompatibleProvider implements AIProvider {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.2
+        temperature: 0.2,
+        stream: false
       })
     });
 
