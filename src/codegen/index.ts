@@ -207,7 +207,7 @@ Generate ONLY the single-line shell command. Do not include explanation, comment
 
       // Conflict avoidance workaround for npx create-next-app .
       const isCreateNextApp = commandText.includes('create-next-app');
-      const tempDir = path.join('/tmp', 'pxml-temp-init');
+      const tempDir = path.join(process.cwd(), '../.pxml-temp-init');
       const conflictItems = ['project.xml', 'pxml.xsd', 'flows', 'shared', '.pxml'];
       const movedItems: { src: string; dest: string }[] = [];
 
