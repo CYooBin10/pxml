@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { PxmlParser } from '../parser/index.js';
+import { PxmlParser, validateProject } from '../parser/index.js';
 import { DependencyGraph } from '../graph/index.js';
 import { PxmlManifest } from '../manifest/index.js';
 import { PxmlCache } from '../cache/index.js';
@@ -53,7 +53,9 @@ program
       <path>app/page.tsx</path>
       <depends_on>setup.nextjs</depends_on>
     </meta>
-    <constraint verify="static">Replace the entire homepage with a beautifully styled landing page (clean dark theme, tailwind classes). Do not call any dashboard APIs like /api/network or /api/ram. Show a hero section, and a prominent link/button pointing to the Posts page at '/posts'.</constraint>
+    <constraint verify="static">File exports default React component</constraint>
+    <constraint verify="static">Page contains a link with href="/posts"</constraint>
+    <constraint verify="llm-judge">Replace the entire homepage with a beautifully styled landing page (clean dark theme, tailwind classes). Do not call any dashboard APIs like /api/network or /api/ram. Show a hero section, and a prominent link/button pointing to the Posts page at '/posts'.</constraint>
   </node>
 </project>`;
 
@@ -157,6 +159,13 @@ program
 
     const parser = new PxmlParser();
     const project = parser.parse(projectXml);
+    try {
+      validateProject(project);
+    } catch (err: any) {
+      console.error(err.message);
+      process.exit(1);
+    }
+    injectHistoricalBugs(project.nodes, cwd);
     const graph = new DependencyGraph(project.nodes);
     const order = graph.getSortOrder();
 
@@ -206,7 +215,7 @@ program
 
       console.log(`[CODEGEN] Generating code for node: ${nodeId}`);
       try {
-        await codegen.generateNodeCode(node, projectContext, writer);
+        await codegen.generateNodeCode(node, projectContext, writer, project.stack);
         
         manifest.setNode(nodeId, {
           node_id: nodeId,
@@ -225,7 +234,38 @@ program
       }
     }
 
+    const stats = codegen.getStats();
+    if (stats.inputTokens > 0 || stats.outputTokens > 0) {
+      const cost = calculateEstimatedCost(options.model, stats);
+      console.log(`\nToken Usage & Cost Summary:`);
+      console.log(`- Input Tokens: ${stats.inputTokens} (Cached: ${stats.cachedTokens})`);
+      console.log(`- Output Tokens: ${stats.outputTokens}`);
+      console.log(`- Estimated Cost: $${cost.toFixed(4)}`);
+    }
+
     console.log('Compilation finished successfully.');
+  });
+
+program
+  .command('validate')
+  .description('Validate XML files against schema and rules')
+  .action(() => {
+    const cwd = process.cwd();
+    const projectXml = path.join(cwd, 'project.xml');
+    if (!fs.existsSync(projectXml)) {
+      console.error('project.xml not found. Run pxml init first.');
+      process.exit(1);
+    }
+
+    try {
+      const parser = new PxmlParser();
+      const project = parser.parse(projectXml);
+      validateProject(project);
+      console.log('Project validation successful.');
+    } catch (err: any) {
+      console.error(err.message);
+      process.exit(1);
+    }
   });
 
 program
@@ -400,6 +440,15 @@ program
         console.log(`[FIX] Node ${node.id} is healthy.`);
       }
     }
+
+    const stats = codegen.getStats();
+    if (stats.inputTokens > 0 || stats.outputTokens > 0) {
+      const cost = calculateEstimatedCost(options.model, stats);
+      console.log(`\nToken Usage & Cost Summary (Fix Loop):`);
+      console.log(`- Input Tokens: ${stats.inputTokens} (Cached: ${stats.cachedTokens})`);
+      console.log(`- Output Tokens: ${stats.outputTokens}`);
+      console.log(`- Estimated Cost: $${cost.toFixed(4)}`);
+    }
   });
 
 program
@@ -422,5 +471,81 @@ program
       console.log('[ ] AI API Key is missing (needed for pxml compile/fix)');
     }
   });
+
+function injectHistoricalBugs(nodes: any[], cwd: string) {
+  const bugsHistoryPath = path.join(cwd, 'bugs_history.xml');
+  if (!fs.existsSync(bugsHistoryPath)) return;
+
+  try {
+    const historyXml = fs.readFileSync(bugsHistoryPath, 'utf-8');
+    const optionsXml = {
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      allowBooleanAttributes: true,
+      parseAttributeValue: true,
+    };
+    const fastXml = new XMLParser(optionsXml);
+    const parsed = fastXml.parse(historyXml);
+    if (!parsed.bugs || !parsed.bugs.bug) return;
+
+    const rawBugs = Array.isArray(parsed.bugs.bug) ? parsed.bugs.bug : [parsed.bugs.bug];
+    for (const node of nodes) {
+      for (const bug of rawBugs) {
+        const bugId = bug['@_id'];
+        const bugFlow = bug['@_flow'] || 'general';
+        const bugDesc = (typeof bug === 'object' ? bug['#text'] || bug.description || '' : String(bug)).trim();
+
+        const matchesFlow = bugFlow !== 'general' && (node.flow === bugFlow || node.id.includes(bugFlow));
+        const hasExplicitLearned = node.constraints.some((c: any) => c.learnedFrom === bugId);
+
+        if (matchesFlow || hasExplicitLearned) {
+          const alreadyExists = node.constraints.some((c: any) => c.learnedFrom === bugId || c.description.includes(bugDesc));
+          if (!alreadyExists) {
+            node.constraints.push({
+              verify: 'static',
+              description: `Prevent regression of bug ${bugId}: ${bugDesc}`,
+              learnedFrom: bugId
+            });
+          }
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn(`[WARNING] Failed to parse bugs_history.xml: ${err.message}`);
+  }
+}
+
+function calculateEstimatedCost(model: string, stats: { inputTokens: number; outputTokens: number; cachedTokens: number }): number {
+  const modelLower = model.toLowerCase();
+  let inputRate = 0.000003; // Default input rate per token ($3/M)
+  let outputRate = 0.000015; // Default output rate per token ($15/M)
+  let cacheReadRate = 0.0000003; // Default cache read rate ($0.30/M)
+
+  if (modelLower.includes('gpt-4o-mini')) {
+    inputRate = 0.00000015; // $0.15/M
+    outputRate = 0.0000006; // $0.60/M
+    cacheReadRate = 0.000000075;
+  } else if (modelLower.includes('gpt-4o')) {
+    inputRate = 0.000005; // $5/M
+    outputRate = 0.000015; // $15/M
+    cacheReadRate = 0.0000025;
+  } else if (modelLower.includes('haiku')) {
+    inputRate = 0.00000025; // $0.25/M
+    outputRate = 0.00000125; // $1.25/M
+    cacheReadRate = 0.00000003;
+  } else if (modelLower.includes('sonnet')) {
+    inputRate = 0.000003; // $3/M
+    outputRate = 0.000015; // $15/M
+    cacheReadRate = 0.0000003; // $0.30/M
+  } else if (modelLower.includes('opus')) {
+    inputRate = 0.000015; // $15/M
+    outputRate = 0.000075; // $75/M
+    cacheReadRate = 0.0000015;
+  }
+
+  const normalInput = Math.max(0, stats.inputTokens - stats.cachedTokens);
+  const cost = (normalInput * inputRate) + (stats.cachedTokens * cacheReadRate) + (stats.outputTokens * outputRate);
+  return cost;
+}
 
 program.parse(process.argv);

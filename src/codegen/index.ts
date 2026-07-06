@@ -5,12 +5,46 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
+function getStackInstructions(stack: string): { systemPrompt: string; promptNote: string } {
+  const stackLower = stack.toLowerCase();
+  if (stackLower.includes('python')) {
+    return {
+      systemPrompt: `You are an expert Python developer generating implementation code for a node specification.
+Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`python) or explanations. Only output code.
+CRITICAL: Use idiomatic Python code, follow PEP 8 styling, and make sure dependencies are imported correctly.`,
+      promptNote: `Stack: Python. Use standard Python practices, requirements, and imports.`
+    };
+  } else if (stackLower.includes('rust')) {
+    return {
+      systemPrompt: `You are an expert Rust developer generating implementation code for a node specification.
+Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`rust) or explanations. Only output code.
+CRITICAL: Write clean Rust code, manage lifetimes and ownership correctly, and follow Rust idioms.`,
+      promptNote: `Stack: Rust. Use standard Rust syntax and crate references.`
+    };
+  } else if (stackLower.includes('go') || stackLower === 'golang') {
+    return {
+      systemPrompt: `You are an expert Go developer generating implementation code for a node specification.
+Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`go) or explanations. Only output code.
+CRITICAL: Write idiomatic Go code, ensure correct package declaration, and format using gofmt standards.`,
+      promptNote: `Stack: Go. Use standard Go packaging and syntax.`
+    };
+  } else {
+    return {
+      systemPrompt: `You are an expert software engineer generating implementation code for a node specification.
+Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`typescript) or explanations. Only output code.
+CRITICAL: The codebase uses ES Modules (ESM). You must STRICTLY use 'import ... from ...' syntax. NEVER generate CommonJS 'require(...)' calls.`,
+      promptNote: `Stack: JS/TS (${stack}). Ensure ES Module format.`
+    };
+  }
+}
+
 export interface AIProvider {
   generate(prompt: string, systemPrompt: string, model: string): Promise<string>;
 }
 
 export class AnthropicProvider implements AIProvider {
   private client: Anthropic;
+  public stats = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
   constructor(apiKey: string) {
     this.client = new Anthropic({ apiKey });
   }
@@ -22,6 +56,12 @@ export class AnthropicProvider implements AIProvider {
       system: systemPrompt,
       messages: [{ role: 'user', content: prompt }]
     });
+    if (response.usage) {
+      this.stats.inputTokens += response.usage.input_tokens || 0;
+      this.stats.outputTokens += response.usage.output_tokens || 0;
+      const cacheRead = (response.usage as any).cache_read_input_tokens || 0;
+      this.stats.cachedTokens += cacheRead;
+    }
     return response.content[0].type === 'text' ? response.content[0].text : '';
   }
 }
@@ -29,6 +69,7 @@ export class AnthropicProvider implements AIProvider {
 export class OpenAICompatibleProvider implements AIProvider {
   private apiKey: string;
   private baseUrl: string;
+  public stats = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
 
   constructor(apiKey: string, baseUrl = 'https://api.openai.com/v1') {
     this.apiKey = apiKey;
@@ -71,6 +112,12 @@ export class OpenAICompatibleProvider implements AIProvider {
         }
 
         const data = await response.json() as any;
+        if (data.usage) {
+          this.stats.inputTokens += data.usage.prompt_tokens || 0;
+          this.stats.outputTokens += data.usage.completion_tokens || 0;
+          const cached = data.usage.prompt_tokens_details?.cached_tokens || 0;
+          this.stats.cachedTokens += cached;
+        }
         return data.choices?.[0]?.message?.content || '';
       } catch (err: any) {
         clearTimeout(timeoutId);
@@ -88,6 +135,7 @@ export class OpenAICompatibleProvider implements AIProvider {
 
 export class OllamaProvider implements AIProvider {
   private baseUrl: string;
+  public stats = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
 
   constructor(baseUrl = 'http://localhost:11434') {
     this.baseUrl = baseUrl;
@@ -127,6 +175,10 @@ export class OllamaProvider implements AIProvider {
         }
 
         const data = await response.json() as any;
+        if (data) {
+          this.stats.inputTokens += data.prompt_eval_count || 0;
+          this.stats.outputTokens += data.eval_count || 0;
+        }
         return data.response || '';
       } catch (err: any) {
         clearTimeout(timeoutId);
@@ -175,6 +227,13 @@ export class PxmlCodegen {
     }
   }
 
+  getStats() {
+    if (this.provider && 'stats' in this.provider) {
+      return (this.provider as any).stats;
+    }
+    return { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
+  }
+
   async generateDirect(prompt: string, systemPrompt: string): Promise<string> {
     if (!this.provider) {
       throw new Error(`AI Provider is not configured.`);
@@ -182,7 +241,8 @@ export class PxmlCodegen {
     return this.provider.generate(prompt, systemPrompt, this.config.model);
   }
 
-  async generateNodeCode(node: Node, projectContext: string, writer: FileWriter): Promise<string> {
+  async generateNodeCode(node: Node, projectContext: string, writer: FileWriter, stack = 'nextjs'): Promise<string> {
+    const stackInfo = getStackInstructions(stack);
     if (node.type === 'setup-command') {
       if (this.config.mockResponse) {
         const mockCmd = this.config.mockResponse(node);
@@ -201,7 +261,8 @@ Generate the exact terminal shell command to initialize/configure this project:
 - ID: ${node.id}
 - Type: ${node.type}
 - Flow: ${node.flow}
-- Target: Run setup tasks like 'npx create-next-app ...' or 'npm install ...'
+- Stack: ${stack}
+- Target: Run setup tasks (e.g. create project or install packages)
 - Constraints:
 ${node.constraints.map(c => `  - [${c.verify}] ${c.description}`).join('\n')}
 
@@ -263,10 +324,8 @@ Generate ONLY the single-line shell command. Do not include explanation, comment
       throw new Error(`AI Provider is not configured.`);
     }
 
-    const prompt = this.buildPrompt(node, projectContext);
-    const systemPrompt = `You are an expert software engineer generating implementation code for a node specification.
-Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`typescript) or explanations. Only output code.
-CRITICAL: The codebase uses ES Modules (ESM). You must STRICTLY use 'import ... from ...' syntax. NEVER generate CommonJS 'require(...)' calls.`;
+    const prompt = this.buildPrompt(node, projectContext, stackInfo.promptNote);
+    const systemPrompt = stackInfo.systemPrompt;
     
     const code = await this.provider.generate(prompt, systemPrompt, this.config.model);
     let cleanedCode = this.cleanMarkdown(code);
@@ -279,11 +338,9 @@ Constraints:
 ${node.constraints.map(c => `  - [${c.verify}] ${c.description}`).join('\n')}
 
 Generated Code:
-\`\`\`typescript
 ${cleanedCode}
-\`\`\`
 
-Analyze the code. Are there any bugs, schema inconsistencies, missing SQLite seed data (if database-related), or missing exports? 
+Analyze the code. Are there any bugs, schema inconsistencies, or missing imports/exports? 
 If there are issues, output the corrected code. If the code is fully stable, output the word "STABLE".`;
 
       const verificationResponse = await this.provider.generate(verificationPrompt, "You are a senior code reviewer. Return ONLY the corrected code or the exact word 'STABLE'. Do not include markdown code blocks or explanations.", this.config.model);
@@ -302,7 +359,7 @@ If there are issues, output the corrected code. If the code is fully stable, out
     return cleanedCode;
   }
 
-  private buildPrompt(node: Node, projectContext: string): string {
+  private buildPrompt(node: Node, projectContext: string, promptNote: string): string {
     return `Project Context:
 ${projectContext}
 
@@ -313,8 +370,9 @@ Generate implementation file for this node:
 - Destination Path: ${node.meta.path}
 - Input Fields: ${JSON.stringify(node.input)}
 - Output Fields: ${JSON.stringify(node.output)}
+- ${promptNote}
 - Constraints:
-${node.constraints.map(c => `  - [${c.verify}] ${c.description}`).join('\n')}
+${node.constraints.map(c => `  - [${c.verify}] ${c.description}${c.learnedFrom ? ` (Learned from bug: ${c.learnedFrom})` : ''}`).join('\n')}
 
 Generate the cleanest code matching this specification. Do not include markdown wrapping or explanation.`;
   }

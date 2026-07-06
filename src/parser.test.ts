@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PxmlParser } from '../src/parser/index.ts';
+import { PxmlParser, validateProject } from '../src/parser/index.ts';
 import { DependencyGraph } from '../src/graph/index.ts';
 import * as path from 'path';
 
@@ -30,6 +30,27 @@ describe('PxmlParser', () => {
 
     expect(() => parser.parse('/tmp/a.xml')).toThrow('Circular import detected');
   });
+
+  it('should parse learned-from attribute on constraints', () => {
+    const parser = new PxmlParser();
+    const fs = require('fs');
+    fs.writeFileSync('/tmp/learned_test.xml', `
+      <project name="learned-test" stack="nextjs" version="0.1.0">
+        <node id="node.test" type="api-route" flow="test">
+          <meta>
+            <path>app/api/test.ts</path>
+          </meta>
+          <constraint verify="static" learned-from="bug.db_lock">Do not block db connections</constraint>
+        </node>
+      </project>
+    `);
+    const project = parser.parse('/tmp/learned_test.xml');
+    const node = project.nodes.find(n => n.id === 'node.test');
+    expect(node).toBeDefined();
+    expect(node?.constraints[0].learnedFrom).toBe('bug.db_lock');
+    expect(node?.constraints[0].verify).toBe('static');
+    expect(node?.constraints[0].description).toBe('Do not block db connections');
+  });
 });
 
 describe('DependencyGraph', () => {
@@ -47,5 +68,109 @@ describe('DependencyGraph', () => {
     expect(dbIndex).toBeGreaterThan(-1);
     expect(apiIndex).toBeGreaterThan(-1);
     expect(dbIndex).toBeLessThan(apiIndex);
+  });
+});
+
+describe('validateProject', () => {
+  it('should throw if a node has output but no tests', () => {
+    const project = {
+      name: 'test',
+      stack: 'nextjs',
+      version: '0.1.0',
+      nodes: [
+        {
+          id: 'api.test',
+          type: 'api-route',
+          flow: 'test',
+          meta: { path: 'app/api/test.ts', depends_on: [] },
+          input: [],
+          output: [{ name: 'res', type: 'string', required: true }],
+          constraints: [],
+          tests: []
+        }
+      ]
+    };
+    expect(() => validateProject(project)).toThrow("has output fields defined, but is missing test cases");
+  });
+
+  it('should throw if a node test is missing required input fields', () => {
+    const project = {
+      name: 'test',
+      stack: 'nextjs',
+      version: '0.1.0',
+      nodes: [
+        {
+          id: 'api.test',
+          type: 'api-route',
+          flow: 'test',
+          meta: { path: 'app/api/test.ts', depends_on: [] },
+          input: [{ name: 'title', type: 'string', required: true }],
+          output: [],
+          constraints: [],
+          tests: [
+            {
+              name: 'Invalid Test',
+              given: { body: {} },
+              expect: {}
+            }
+          ]
+        }
+      ]
+    };
+    expect(() => validateProject(project)).toThrow("missing required input field 'title'");
+  });
+
+  it('should throw if a node test contains field not declared in input', () => {
+    const project = {
+      name: 'test',
+      stack: 'nextjs',
+      version: '0.1.0',
+      nodes: [
+        {
+          id: 'api.test',
+          type: 'api-route',
+          flow: 'test',
+          meta: { path: 'app/api/test.ts', depends_on: [] },
+          input: [{ name: 'title', type: 'string', required: true }],
+          output: [],
+          constraints: [],
+          tests: [
+            {
+              name: 'Extra Field Test',
+              given: { body: { title: 'hello', unknownField: 'extra' } },
+              expect: {}
+            }
+          ]
+        }
+      ]
+    };
+    expect(() => validateProject(project)).toThrow("specifies field 'unknownField' in given body which is not declared in node inputs");
+  });
+
+  it('should not throw if valid', () => {
+    const project = {
+      name: 'test',
+      stack: 'nextjs',
+      version: '0.1.0',
+      nodes: [
+        {
+          id: 'api.test',
+          type: 'api-route',
+          flow: 'test',
+          meta: { path: 'app/api/test.ts', depends_on: [] },
+          input: [{ name: 'title', type: 'string', required: true }],
+          output: [{ name: 'id', type: 'string', required: true }],
+          constraints: [],
+          tests: [
+            {
+              name: 'Valid Test',
+              given: { body: { title: 'hello' } },
+              expect: {}
+            }
+          ]
+        }
+      ]
+    };
+    expect(() => validateProject(project)).not.toThrow();
   });
 });

@@ -19,7 +19,8 @@ export const FieldSchema = z.object({
 
 export const ConstraintSchema = z.object({
   verify: z.enum(['static', 'llm-judge']).default('static'),
-  description: z.string()
+  description: z.string(),
+  learnedFrom: z.string().optional()
 });
 
 export const TestExpectSchema = z.object({

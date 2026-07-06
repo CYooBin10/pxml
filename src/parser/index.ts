@@ -114,7 +114,8 @@ export class PxmlParser {
         ? (Array.isArray(constraintRaw) ? constraintRaw : [constraintRaw]).map(c => {
             const verify = c['@_verify'] || 'static';
             const description = typeof c === 'object' ? c['#text'] || '' : String(c);
-            return { verify, description };
+            const learnedFrom = typeof c === 'object' ? c['@_learned-from'] : undefined;
+            return { verify, description, learnedFrom };
           })
         : [];
 
@@ -298,5 +299,55 @@ export class PxmlParser {
     };
 
     return nodes.map(node => resolveNode(node.id));
+  }
+}
+
+export function validateProject(project: Project): void {
+  for (const node of project.nodes) {
+    if (node.output.length > 0 && node.type !== 'db-model' && node.type !== 'setup-command' && node.tests.length === 0) {
+      throw new Error(`Validation Error: Node '${node.id}' has output fields defined, but is missing test cases.`);
+    }
+
+    if (node.input.length > 0) {
+      for (const test of node.tests) {
+        const given = test.given || {};
+
+        for (const field of node.input) {
+          if (field.required) {
+            const inRoot = given[field.name] !== undefined;
+            const inBody = given.body && typeof given.body === 'object' && given.body[field.name] !== undefined;
+            const inQuery = given.query && typeof given.query === 'object' && given.query[field.name] !== undefined;
+            const inHeaders = given.headers && typeof given.headers === 'object' && given.headers[field.name] !== undefined;
+
+            if (!inRoot && !inBody && !inQuery && !inHeaders) {
+              throw new Error(`Validation Error: Node '${node.id}' test '${test.name}' is missing required input field '${field.name}' in 'given'.`);
+            }
+          }
+        }
+
+        const allowedRootKeys = new Set(['method', 'headers', 'query', 'body']);
+        const inputFieldNames = new Set(node.input.map(f => f.name));
+
+        const checkKeys = (obj: any, locationName: string) => {
+          if (!obj || typeof obj !== 'object') return;
+          for (const key of Object.keys(obj)) {
+            if (key.startsWith('@_')) continue;
+            if (locationName === 'root' && allowedRootKeys.has(key)) continue;
+
+            if (!inputFieldNames.has(key)) {
+              throw new Error(`Validation Error: Node '${node.id}' test '${test.name}' specifies field '${key}' in given ${locationName} which is not declared in node inputs.`);
+            }
+          }
+        };
+
+        checkKeys(given, 'root');
+        if (given.body && typeof given.body === 'object') {
+          checkKeys(given.body, 'body');
+        }
+        if (given.query && typeof given.query === 'object') {
+          checkKeys(given.query, 'query');
+        }
+      }
+    }
   }
 }
