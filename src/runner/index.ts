@@ -19,15 +19,15 @@ export function getTestFilePath(srcPath: string, stack: string): string {
   if (stackLower.includes('python')) {
     const dir = path.dirname(srcPath);
     const filename = path.basename(srcPath);
-    return path.join('tests', dir, `test_${filename}`);
+    return path.join(dir, `test_${filename}`);
   } else if (stackLower.includes('go') || stackLower === 'golang') {
-    return path.join('tests', `${base}_test${ext}`);
+    return `${base}_test${ext}`;
   } else if (stackLower.includes('c#') || stackLower === 'csharp') {
-    return path.join('tests', `${base}.Tests${ext}`);
+    return `${base}.Tests${ext}`;
   } else {
     const isTsx = ext === '.tsx' || ext === '.jsx';
     const testExt = isTsx ? `.test${ext}` : `.test${ext}`;
-    return path.join('tests', `${base}${testExt}`);
+    return `${base}${testExt}`;
   }
 }
 

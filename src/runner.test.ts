@@ -94,10 +94,10 @@ export default async function handler(req) {
 
 describe('getTestFilePath', () => {
   it('should map test file paths based on stack', () => {
-    expect(getTestFilePath('app/api/cart.ts', 'nextjs')).toBe('tests/app/api/cart.test.ts');
-    expect(getTestFilePath('app/api/cart.tsx', 'nextjs')).toBe('tests/app/api/cart.test.tsx');
-    expect(getTestFilePath('pkg/auth/login.go', 'go')).toBe('tests/pkg/auth/login_test.go');
-    expect(getTestFilePath('app/api/cart.py', 'python')).toBe('tests/app/api/test_cart.py');
-    expect(getTestFilePath('src/Services/AuthService.cs', 'csharp')).toBe('tests/src/Services/AuthService.Tests.cs');
+    expect(getTestFilePath('app/api/cart.ts', 'nextjs')).toBe('app/api/cart.test.ts');
+    expect(getTestFilePath('app/api/cart.tsx', 'nextjs')).toBe('app/api/cart.test.tsx');
+    expect(getTestFilePath('pkg/auth/login.go', 'go')).toBe('pkg/auth/login_test.go');
+    expect(getTestFilePath('app/api/cart.py', 'python')).toBe('app/api/test_cart.py');
+    expect(getTestFilePath('src/Services/AuthService.cs', 'csharp')).toBe('src/Services/AuthService.Tests.cs');
   });
 });
