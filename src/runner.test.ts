@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PxmlTestgen } from '../src/testgen/index.ts';
-import { PxmlRunner } from '../src/runner/index.ts';
+import { PxmlRunner, getTestFilePath } from '../src/runner/index.ts';
 import { FileWriter } from '../src/writer/index.ts';
 import { Node } from '../src/parser/schema.js';
 import * as fs from 'fs';
@@ -89,5 +89,15 @@ export default async function handler(req) {
     const result = runner.runNodeTests(mockNode);
     expect(result.passed).toBe(false);
     expect(result.results['Get posts list default page size']).toBe('fail');
+  });
+});
+
+describe('getTestFilePath', () => {
+  it('should map test file paths based on stack', () => {
+    expect(getTestFilePath('app/api/cart.ts', 'nextjs')).toBe('tests/app/api/cart.test.ts');
+    expect(getTestFilePath('app/api/cart.tsx', 'nextjs')).toBe('tests/app/api/cart.test.tsx');
+    expect(getTestFilePath('pkg/auth/login.go', 'go')).toBe('tests/pkg/auth/login_test.go');
+    expect(getTestFilePath('app/api/cart.py', 'python')).toBe('tests/app/api/test_cart.py');
+    expect(getTestFilePath('src/Services/AuthService.cs', 'csharp')).toBe('tests/src/Services/AuthService.Tests.cs');
   });
 });

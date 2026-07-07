@@ -19,4 +19,14 @@ export class PxmlCache {
     });
     return crypto.createHash('sha256').update(serialized).digest('hex');
   }
+
+  static hashNodeTests(node: Node): string {
+    const serialized = JSON.stringify({
+      input: node.input,
+      output: node.output,
+      constraints: node.constraints,
+      tests: node.tests
+    });
+    return crypto.createHash('sha256').update(serialized).digest('hex');
+  }
 }

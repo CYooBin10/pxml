@@ -16,7 +16,8 @@ export async function runFixLoop(
   writer: FileWriter,
   mockFixResponse?: string,
   bugContext?: string,
-  forceFirstRun?: boolean
+  forceFirstRun?: boolean,
+  stack = 'nextjs'
 ): Promise<boolean> {
   const maxRetries = 3;
   let attempt = 0;
@@ -29,7 +30,7 @@ export async function runFixLoop(
 
     // 1. Gather failure context
     const currentCode = fs.existsSync(node.meta.path) ? fs.readFileSync(node.meta.path, 'utf-8') : '';
-    const testResult = runner.runNodeTests(node);
+    const testResult = runner.runNodeTests(node, stack);
     
     // Bypass check only on attempt 1 if forceFirstRun is requested
     const bypassCheck = forceFirstRun && attempt === 1;

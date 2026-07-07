@@ -1,4 +1,5 @@
-<bugs>
+<bugs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="bugs.xsd">
   <bug id="db.locking" flow="blog.write">
     SQLite database file locks when executing parallel write operations. Ensure connections are closed properly or run db queries sequentially.
   </bug>

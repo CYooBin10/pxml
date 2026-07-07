@@ -5,7 +5,7 @@ import { DependencyGraph } from '../graph/index.js';
 import { PxmlManifest } from '../manifest/index.js';
 import { PxmlCache } from '../cache/index.js';
 import { PxmlCodegen } from '../codegen/index.js';
-import { PxmlRunner } from '../runner/index.js';
+import { PxmlRunner, getTestFilePath } from '../runner/index.js';
 import { FileWriter } from '../writer/index.js';
 import { runFixLoop } from './fix.js';
 import { execSync } from 'child_process';
@@ -234,17 +234,30 @@ program
 
       console.log(`[CODEGEN] Generating code for node: ${nodeId}`);
       try {
-        await codegen.generateNodeCode(node, projectContext, writer, project.stack);
+        const code = await codegen.generateNodeCode(node, projectContext, writer, project.stack);
         
+        const testFilePath = getTestFilePath(node.meta.path, project.stack);
+        const testXmlHash = PxmlCache.hashNodeTests(node);
+        const cachedTestHash = (cached as any)?.test_xml_hash;
+        const absTestFilePath = path.resolve(cwd, testFilePath);
+
+        if (node.type !== 'setup-command' && node.type !== 'config-file') {
+          if (!cached || cached.xml_hash !== xmlHash || !fs.existsSync(absTestFilePath) || cachedTestHash !== testXmlHash) {
+            console.log(`[TESTGEN] Generating/Updating test file at: ${testFilePath}`);
+            await codegen.generateNodeTest(node, absTestFilePath, code, project.stack, writer);
+          }
+        }
+
         manifest.setNode(nodeId, {
           node_id: nodeId,
-          source_file: 'project.xml', // Simplify for this phase
+          source_file: 'project.xml',
           xml_hash: xmlHash,
-          output_files: [node.meta.path],
+          test_xml_hash: testXmlHash,
+          output_files: node.type !== 'setup-command' && node.type !== 'config-file' ? [node.meta.path, testFilePath] : [node.meta.path],
           depends_on: node.meta.depends_on,
           flow: node.flow,
           generated_at: new Date().toISOString()
-        });
+        } as any);
         manifest.save();
       } catch (err: any) {
         console.error(`[ERROR] Failed to compile node ${nodeId}: ${err.message}`);
@@ -307,7 +320,7 @@ program
     let allPassed = true;
     for (const node of project.nodes) {
       console.log(`[TEST] Running tests for node: ${node.id}`);
-      const res = runner.runNodeTests(node);
+      const res = runner.runNodeTests(node, project.stack);
       
       const existing = manifest.getNode(node.id);
       if (existing) {
@@ -446,10 +459,10 @@ program
     for (const node of targetNodes) {
       // Check if node is failing tests, or force fix if a custom bug context is provided
       console.log(`[FIX] Verifying node: ${node.id}`);
-      const testRes = runner.runNodeTests(node);
+      const testRes = runner.runNodeTests(node, project.stack);
       if (!testRes.passed || bugContext) {
         // If bugContext is provided, force run at least once by passing a flag or bypassing check
-        const success = await runFixLoop(node, cwd, manifest, codegen, runner, writer, undefined, bugContext, !!bugContext);
+        const success = await runFixLoop(node, cwd, manifest, codegen, runner, writer, undefined, bugContext, !!bugContext, project.stack);
         if (success) {
           console.log(`[FIX] Node ${node.id} healed successfully.`);
         } else {

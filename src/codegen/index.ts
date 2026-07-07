@@ -373,6 +373,70 @@ If there are issues, output the corrected code. If the code is fully stable, out
     return cleanedCode;
   }
 
+  async generateNodeTest(node: Node, testPath: string, implementationCode: string, stack = 'nextjs', writer: FileWriter): Promise<string> {
+    if (this.config.mockResponse) {
+      const mockTest = `import { describe, it, expect } from 'vitest';\n// Mock test for ${node.id}\n`;
+      writer.write(testPath, mockTest);
+      return mockTest;
+    }
+
+    if (!this.provider) {
+      throw new Error(`AI Provider is not configured.`);
+    }
+
+    const testFileExists = fs.existsSync(testPath);
+    const currentTestCode = testFileExists ? fs.readFileSync(testPath, 'utf-8') : '';
+
+    const systemPrompt = `You are an expert QA and software testing engineer.
+Generate ONLY the complete test file contents. Do not include markdown code block syntax (like \`\`\`typescript) or explanations. Only output test code.
+CRITICAL: The test framework matches the stack. For JS/TS, use Vitest. For Python, use pytest. For Go, use testing. For C#, use xUnit or NUnit.`;
+
+    let prompt = '';
+    if (testFileExists && currentTestCode) {
+      prompt = `Improve and update the existing test file for this node to match the updated implementation and specifications.
+Implementation File Path: ${node.meta.path}
+Implementation Code:
+\`\`\`
+${implementationCode}
+\`\`\`
+
+Test File Path: ${testPath}
+Existing Test Code:
+\`\`\`
+${currentTestCode}
+\`\`\`
+
+XML Specifications:
+- Input Fields: ${JSON.stringify(node.input)}
+- Output Fields: ${JSON.stringify(node.output)}
+- Constraints: ${node.constraints.map(c => `[${c.verify}] ${c.description}`).join('\n')}
+
+Generate the updated complete test code. Do not include markdown wrapping or explanation.`;
+    } else {
+      prompt = `Generate a comprehensive test file for the following implementation node based on its specification and code.
+Implementation File Path: ${node.meta.path}
+Implementation Code:
+\`\`\`
+${implementationCode}
+\`\`\`
+
+Target Test File Path: ${testPath}
+XML Specifications:
+- Input Fields: ${JSON.stringify(node.input)}
+- Output Fields: ${JSON.stringify(node.output)}
+- Constraints: ${node.constraints.map(c => `[${c.verify}] ${c.description}`).join('\n')}
+- Defined Test Scenarios: ${JSON.stringify(node.tests)}
+
+Generate the complete test code. Do not include markdown wrapping or explanation.`;
+    }
+
+    const testCode = await this.provider.generate(prompt, systemPrompt, this.config.model);
+    const cleaned = this.cleanMarkdown(testCode);
+    writer.write(testPath, cleaned);
+    this.logAIResponse(node.id + "_test", prompt, cleaned);
+    return cleaned;
+  }
+
   private buildPrompt(node: Node, projectContext: string, promptNote: string): string {
     return `Project Context:
 ${projectContext}
