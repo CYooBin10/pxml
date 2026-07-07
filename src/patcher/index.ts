@@ -30,7 +30,7 @@ export class PxmlPatcher {
     return result;
   }
 
-  private static parsePatch(patch: string): { search: string; replace: string }[] {
+  static parsePatch(patch: string): { search: string; replace: string }[] {
     const blocks: { search: string; replace: string }[] = [];
     const lines = patch.split('\n');
     let i = 0;
