@@ -9,8 +9,9 @@
 pxml init
 ```
 This command initializes the folder structure:
-- `project.xml`: main config file that imports defined flows.
+- `project.xml`: main config file that imports defined flows and local packages.
 - `flows/blog.xml`: defines individual nodes (e.g. `api.posts.create`) containing paths, constraints, and test scenarios.
+- `packages/`: directory to save local packages (initialized with a sample plugin `init-nextjs-project`).
 
 ### 2. Compile Specification (Compile)
 Ensure you set the environment variable `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY` if using OpenAI):

@@ -14,9 +14,11 @@ The root element of a project config.
 ---
 
 ### `<import>`
-Imports nodes from external files.
+Imports nodes from external files or remote/local packages.
 #### Attributes:
-- `src` (required): Relative file path to the imported XML file.
+- `src` (optional): Relative file path to the imported XML file.
+- `package` (optional): Name of the package to import.
+- `from` (optional): Location of the package. Supports local folders (e.g. `packages/my-pack`) or GitHub repositories (e.g. `github:owner/repo`).
 - `as` (required): Namespace alias to prefix imported nodes.
 
 ---
