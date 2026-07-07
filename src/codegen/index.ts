@@ -5,6 +5,16 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
+const colors = {
+  red: (text: string) => `\x1b[31m${text}\x1b[0m`,
+  green: (text: string) => `\x1b[32m${text}\x1b[0m`,
+  yellow: (text: string) => `\x1b[33m${text}\x1b[0m`,
+  blue: (text: string) => `\x1b[34m${text}\x1b[0m`,
+  magenta: (text: string) => `\x1b[35m${text}\x1b[0m`,
+  cyan: (text: string) => `\x1b[36m${text}\x1b[0m`,
+  bold: (text: string) => `\x1b[1m${text}\x1b[0m`
+};
+
 function getStackInstructions(stack: string): { systemPrompt: string; promptNote: string } {
   const stackLower = stack.toLowerCase();
   if (stackLower.includes('python')) {
@@ -260,7 +270,7 @@ export class PxmlCodegen {
     if (node.type === 'setup-command') {
       if (this.config.mockResponse) {
         const mockCmd = this.config.mockResponse(node);
-        console.log(`[SETUP-COMMAND] Would execute: ${mockCmd}`);
+        console.log(`${colors.cyan(colors.bold('[SETUP-COMMAND]'))} Would execute: ${mockCmd}`);
         return mockCmd;
       }
 
@@ -285,7 +295,7 @@ Generate ONLY the single-line shell command. Do not include explanation, comment
       const systemPrompt = `You are a DevOps engineer generating setup shell commands. Generate ONLY the executable terminal command text. Do not wrap in markdown or backticks.`;
       const commandText = (await this.provider.generate(prompt, systemPrompt, this.config.model)).trim();
       
-      console.log(`[SETUP-COMMAND] Executing command: "${commandText}"`);
+      console.log(`${colors.cyan(colors.bold('[SETUP-COMMAND]'))} Executing command: "${commandText}"`);
 
       // Conflict avoidance workaround for npx create-next-app .
       const isCreateNextApp = commandText.includes('create-next-app');
@@ -361,7 +371,7 @@ If there are issues, output the corrected code. If the code is fully stable, out
       const cleanedVerification = this.cleanMarkdown(verificationResponse);
       
       if (cleanedVerification.toUpperCase() !== 'STABLE' && cleanedVerification.length > 20) {
-        console.log(`[VERIFY] AI self-corrected generated code for node: ${node.id}`);
+        console.log(`${colors.green(colors.bold('[VERIFY]'))} AI self-corrected generated code for node: ${node.id}`);
         cleanedCode = cleanedVerification;
       }
     } catch (err: any) {
