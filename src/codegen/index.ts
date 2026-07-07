@@ -400,7 +400,8 @@ If there are issues, output the corrected code. If the code is fully stable, out
     const systemPrompt = `You are an expert QA and software testing engineer.
 Generate ONLY the complete test file contents. Do not include markdown code block syntax (like \`\`\`typescript) or explanations. Only output test code.
 CRITICAL: The test framework matches the stack. For JS/TS, use Vitest. For Python, use pytest. For Go, use testing. For C#, use xUnit or NUnit.
-CRITICAL: Never attempt to bind/start a live HTTP server or make real external network calls. Always mock inputs, mock requests, mock responses, and use virtual mock routing/internal test request objects (e.g., mock 'Request' in Next.js, 'httptest' in Go, 'responses' or mock frameworks in Python/C#).`;
+CRITICAL: Never attempt to bind/start a live HTTP server or make real external network calls. Always mock inputs, mock requests, mock responses, and use virtual mock routing/internal test request objects (e.g., mock 'Request' in Next.js, 'httptest' in Go, 'responses' or mock frameworks in Python/C#).
+CRITICAL: For Next.js page components where 'searchParams' is a Promise (Next.js 15/React 19), always wrap the rendered component in '<Suspense>' inside the test to prevent suspension boundary errors.`;
 
     let prompt = '';
     if (testFileExists && currentTestCode) {
